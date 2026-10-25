@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>わたしの家計簿</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f7f5f0;color:#34352f;font-family:system-ui,sans-serif}
+header{background:#526b54;color:white;padding:24px 20px;border-radius:0 0 24px 24px}
+header p{margin:0;font-size:13px;opacity:.85}
+header h1{margin:6px 0;font-size:25px}
+main{max-width:680px;margin:auto;padding:18px}
+.card{background:white;border-radius:18px;padding:18px;margin-bottom:16px;box-shadow:0 3px 14px #00000008}
+.label{color:#777;font-size:13px}
+.total{font-size:34px;font-weight:750;margin:8px 0}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:center}
+h2{font-size:17px;margin:0 0 15px}
+input,select,button{font:inherit;border-radius:10px;padding:11px;border:1px solid #ddd}
+input,select{width:100%;background:white;color:#333}
+button{cursor:pointer;background:#526b54;color:white;border:0;font-weight:600}
+form{display:grid;gap:10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bar{height:8px;background:#eee;border-radius:8px;margin-top:7px;overflow:hidden}
+.fill{height:100%;background:#91aa85;border-radius:8px}
+.item{padding:12px 0;border-bottom:1px solid #eee}
+.item:last-child{border-bottom:0}
+.small{font-size:12px;color:#777}
+.tip{background:#edf3e9;padding:13px;border-radius:12px;line-height:1.7}
+.delete{background:#eee;color:#555;padding:6px 10px;font-size:12px}
+.empty{color:#888;text-align:center;padding:20px 0;font-size:14px}
+footer{text-align:center;color:#888;font-size:11px;padding:10px 0 25px}
+</style>
+</head>
+<body>
+<header>
+<p>MY PERSONAL FINANCE</p>
+<h1>わたしの家計簿 🌿</h1>
+<p id="monthLabel"></p>
+</header>
+<main>
+<section class="card">
+<div class="label">今月の支出</div>
+<div class="total" id="total">¥0</div>
+<div class="row">
+<span class="label">登録した支出</span>
+<strong id="count">0件</strong>
+</div>
+</section>
+<section class="card">
+<h2>📝 支出を登録する</h2>
+<form id="expenseForm">
+<div class="grid">
+<div><label class="small" for="date">日付</label><input id="date" type="date" required></div>
+<div><label class="small" for="amount">金額（円）</label><input id="amount" type="number" min="1" step="1" placeholder="1280" required></div>
+</div>
+<div><label class="small" for="shop">店舗・内容</label><input id="shop" maxlength="100" placeholder="例：スーパー" required></div>
+<div class="grid">
+<div><label class="small" for="category">カテゴリ</label>
+<select id="category">
+<option>食費</option><option>日用品</option><option>美容</option><option>交際費</option><option>交通費</option><option>医療費</option><option>趣味</option><option>衣服</option><option>固定費</option><option>その他</option>
+</select></div>
+<div style="display:flex;align-items:end"><button type="submit" style="width:100%">登録する</button></div>
+</div>
+</form>
+</section>
+<section class="card">
+<h2>📊 カテゴリ別の支出</h2>
+<div id="categories"><p class="empty">支出を登録すると、ここに表示されます。</p></div>
+</section>
+<section class="card">
+<h2>💡 今月の節約ヒント</h2>
+<div class="tip" id="advice">支出を登録すると、家計簿のデータをもとにヒントを表示します。</div>
+</section>
+<section class="card">
+<div class="row"><h2 style="margin:0">🧾 支出の履歴</h2><button type="button" class="delete" id="clear">全件削除</button></div>
+<div id="history"><p class="empty">まだ支出はありません。</p></div>
+</section>
+<footer>データはこのブラウザ内に保存されます。定期的にCSVなどへバックアップすることをおすすめします。</footer>
+</main>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const today=new Date();
+const month= today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
+$('monthLabel').textContent=today.getFullYear()+'年'+(today.getMonth()+1)+'月';
+$('date').value=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+let expenses=[];
+try{expenses=JSON.parse(localStorage.getItem('my-kakeibo-expenses')||'[]');if(!Array.isArray(expenses))expenses=[];}catch(e){expenses=[];}
+const yen=n=>'¥'+n.toLocaleString('ja-JP');
+function save(){try{localStorage.setItem('my-kakeibo-expenses',JSON.stringify(expenses));}catch(e){alert('保存できませんでした。ブラウザの保存容量を確認してください。');}}
+function render(){
+const list=expenses.filter(x=>x.date&&x.date.startsWith(month));
+const sum=list.reduce((a,x)=>a+x.amount,0);
+$('total').textContent=yen(sum);
+$('count').textContent=list.length+'件';
+const totals={};
+list.forEach(x=>totals[x.category]=(totals[x.category]||0)+x.amount);
+const cats=Object.entries(totals).sort((a,b)=>b[1]-a[1]);
+$('categories').innerHTML=cats.length?cats.map(([name,value])=>'<div class="item"><div class="row"><span>'+name+'</span><strong>'+yen(value)+'</strong></div><div class="bar"><div class="fill" style="width:'+Math.min(100,sum?value/sum*100:0)+'%"></div></div><div class="small">'+(sum?Math.round(value/sum*100):0)+'%</div></div>').join(''):'<p class="empty">支出を登録すると、ここに表示されます。</p>';
+const sorted=[...expenses].sort((a,b)=>b.date.localeCompare(a.date));
+$('history').innerHTML=sorted.length?sorted.map(x=>'<div class="item"><div class="row"><div><strong>'+escapeHTML(x.shop)+'</strong><div class="small">'+x.date+' ・ '+x.category+'</div></div><div style="text-align:right"><strong>'+yen(x.amount)+'</strong><br><button class="delete" type="button" data-del="'+x.id+'">削除</button></div></div></div>').join(''):'<p class="empty">まだ支出はありません。</p>';
+$('advice').textContent=!list.length?'今月の支出を登録すると、ここにヒントを表示します。':cats[0][0]+'の支出が今月の中で最も多く、'+yen(cats[0][1])+'です。購入内容を振り返り、無理のない範囲で予算を決めてみましょう。';
+}
+function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+$('expenseForm').addEventListener('submit',e=>{
+e.preventDefault();
+const amount=Number($('amount').value);
+const date=$('date').value;
+const shop=$('shop').value.trim();
+if(!date||!shop||!Number.isSafeInteger(amount)||amount<=0){alert('日付・店舗名・金額を正しく入力してください。');return;}
+expenses.push({id:Date.now()+'-'+Math.random().toString(16).slice(2),date,shop,amount,category:$('category').value});
+save();render();$('amount').value='';$('shop').value='';
+});
+$('history').addEventListener('click',e=>{
+const b=e.target.closest('[data-del]');
+if(!b)return;
+expenses=expenses.filter(x=>x.id!==b.dataset.del);save();render();
+});
+$('clear').addEventListener('click',()=>{
+if(!expenses.length)return;
+if(confirm('登録した支出をすべて削除しますか？この操作は取り消せません。')){expenses=[];save();render();}
+});
+render();
+})();
+</script>
+</body>
+</html>
+:::
